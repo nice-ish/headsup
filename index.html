@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Heads Up (web)</title>
+  <style>
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0b0b0f; color:#fff; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 18px; }
+    .card { background:#141420; border:1px solid #2a2a3a; border-radius:18px; padding:18px; }
+    h1 { margin:6px 0 14px; font-size:20px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    button, select { background:#1f1f2e; color:#fff; border:1px solid #343451; border-radius:12px; padding:10px 12px; font-size:15px; }
+    button { cursor:pointer; }
+    button.primary { background:#4c4cff; border-color:#6666ff; }
+    .stage { margin-top:14px; display:grid; gap:12px; }
+    .big { text-align:center; font-size:48px; padding:28px 16px; border-radius:22px; background:#10101a; border:1px solid #2a2a3a; min-height:170px; display:flex; align-items:center; justify-content:center; }
+    .hud { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .pill { background:#10101a; border:1px solid #2a2a3a; border-radius:999px; padding:8px 10px; }
+    .green { background:rgba(68,255,164,.15); }
+    .red { background:rgba(255,92,92,.15); }
+    footer { margin-top:12px; opacity:.7; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Heads Up (browser)</h1>
+
+      <div class="row">
+        <select id="deck"></select>
+        <select id="duration">
+          <option value="60">60s</option>
+          <option value="75" selected>75s</option>
+          <option value="90">90s</option>
+        </select>
+        <button id="start" class="primary">Start</button>
+        <button id="fs">Fullscreen</button>
+      </div>
+
+      <div class="stage">
+        <div class="hud">
+          <div class="pill">Time: <span id="time">—</span></div>
+          <div class="pill green">Correct: <span id="ok">0</span></div>
+          <div class="pill red">Pass: <span id="skip">0</span></div>
+        </div>
+
+        <div id="word" class="big">Pick a deck → Start</div>
+        <div class="pill">Space = correct • P = pass • R = restart</div>
+      </div>
+
+      <footer>Simple heads-up style party game. No installs.</footer>
+    </div>
+  </div>
+
+<script>
+const DECKS = {
+  "Movies": ["Toy Story","The Lion King","Titanic","Frozen","Jaws","The Matrix","Shrek","Jurassic Park","Star Wars"],
+  "Celebs": ["Beyoncé","Taylor Swift","Rihanna","Adele","David Beckham","Zendaya","Keanu Reeves"],
+  "Everyday": ["Toothbrush","Coffee","Backpack","Pizza","Laptop","Sunglasses","Umbrella"],
+  "UK": ["Greggs","Tube map","Fish and chips","Sunday roast","Brolly","Red phone box"]
+};
+
+const deckSel = document.getElementById("deck");
+const durSel = document.getElementById("duration");
+const wordEl = document.getElementById("word");
+const timeEl = document.getElementById("time");
+const okEl = document.getElementById("ok");
+const skipEl = document.getElementById("skip");
+
+let words=[], i=0, ok=0, skip=0, end=0, t=null, running=false;
+
+Object.keys(DECKS).forEach(d=>{
+  const o=document.createElement("option");
+  o.textContent=d; deckSel.appendChild(o);
+});
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+
+function start(){
+  words=[...DECKS[deckSel.value]]; shuffle(words);
+  i=0; ok=0; skip=0;
+  okEl.textContent=0; skipEl.textContent=0;
+  end=Date.now()+durSel.value*1000;
+  running=true;
+  next();
+  tick(); clearInterval(t);
+  t=setInterval(tick,150);
+}
+
+function tick(){
+  const s=Math.max(0,Math.ceil((end-Date.now())/1000));
+  timeEl.textContent=s+"s";
+  if(s<=0) finish();
+}
+
+function finish(){
+  running=false; clearInterval(t);
+  wordEl.textContent="Round over ✅";
+}
+
+function next(){
+  if(!running) return;
+  if(i>=words.length){ shuffle(words); i=0; }
+  wordEl.textContent=words[i++];
+}
+
+function correct(){ if(!running) return; ok++; okEl.textContent=ok; next(); }
+function pass(){ if(!running) return; skip++; skipEl.textContent=skip; next(); }
+
+document.getElementById("start").onclick=start;
+document.getElementById("fs").onclick=()=>document.documentElement.requestFullscreen?.();
+document.addEventListener("keydown",e=>{
+  if(e.code==="Space") correct();
+  if(e.key==="p") pass();
+  if(e.key==="r") start();
+});
+</script>
+</body>
+</html>
