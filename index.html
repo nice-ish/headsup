@@ -1,120 +1,214 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Heads Up (web)</title>
-  <style>
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0b0b0f; color:#fff; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 18px; }
-    .card { background:#141420; border:1px solid #2a2a3a; border-radius:18px; padding:18px; }
-    h1 { margin:6px 0 14px; font-size:20px; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-    button, select { background:#1f1f2e; color:#fff; border:1px solid #343451; border-radius:12px; padding:10px 12px; font-size:15px; }
-    button { cursor:pointer; }
-    button.primary { background:#4c4cff; border-color:#6666ff; }
-    .stage { margin-top:14px; display:grid; gap:12px; }
-    .big { text-align:center; font-size:48px; padding:28px 16px; border-radius:22px; background:#10101a; border:1px solid #2a2a3a; min-height:170px; display:flex; align-items:center; justify-content:center; }
-    .hud { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .pill { background:#10101a; border:1px solid #2a2a3a; border-radius:999px; padding:8px 10px; }
-    .green { background:rgba(68,255,164,.15); }
-    .red { background:rgba(255,92,92,.15); }
-    footer { margin-top:12px; opacity:.7; font-size:12px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Heads Up (Tilt)</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0b0b0f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+  }
+  .card {
+    width: 90%;
+    max-width: 420px;
+    background: #141420;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+  }
+  h1 {
+    font-size: 18px;
+    opacity: .85;
+    margin-bottom: 12px;
+  }
+  .word {
+    font-size: 42px;
+    font-weight: 700;
+    padding: 30px 10px;
+    background: #10101a;
+    border-radius: 16px;
+    margin: 20px 0;
+  }
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    opacity: .9;
+  }
+  .status {
+    margin-top: 14px;
+    font-size: 14px;
+    opacity: .75;
+  }
+  button {
+    margin-top: 16px;
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    border: none;
+    background: #4c4cff;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+  }
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Heads Up (browser)</h1>
+<div class="card">
+  <h1>Heads Up — Tilt to Play</h1>
 
-      <div class="row">
-        <select id="deck"></select>
-        <select id="duration">
-          <option value="60">60s</option>
-          <option value="75" selected>75s</option>
-          <option value="90">90s</option>
-        </select>
-        <button id="start" class="primary">Start</button>
-        <button id="fs">Fullscreen</button>
-      </div>
-
-      <div class="stage">
-        <div class="hud">
-          <div class="pill">Time: <span id="time">—</span></div>
-          <div class="pill green">Correct: <span id="ok">0</span></div>
-          <div class="pill red">Pass: <span id="skip">0</span></div>
-        </div>
-
-        <div id="word" class="big">Pick a deck → Start</div>
-        <div class="pill">Space = correct • P = pass • R = restart</div>
-      </div>
-
-      <footer>Simple heads-up style party game. No installs.</footer>
-    </div>
+  <div class="hud">
+    <div>✅ <span id="correct">0</span></div>
+    <div>⏭ <span id="pass">0</span></div>
+    <div>⏱ <span id="time">60</span>s</div>
   </div>
 
+  <div id="word" class="word">Tap to start</div>
+
+  <button id="start">Start / Enable Tilt</button>
+
+  <div id="status" class="status">
+    Hold upright → read<br>
+    Tilt forward = correct<br>
+    Tilt back = pass
+  </div>
+</div>
+
 <script>
-const DECKS = {
-  "Movies": ["Toy Story","The Lion King","Titanic","Frozen","Jaws","The Matrix","Shrek","Jurassic Park","Star Wars"],
-  "Celebs": ["Beyoncé","Taylor Swift","Rihanna","Adele","David Beckham","Zendaya","Keanu Reeves"],
-  "Everyday": ["Toothbrush","Coffee","Backpack","Pizza","Laptop","Sunglasses","Umbrella"],
-  "UK": ["Greggs","Tube map","Fish and chips","Sunday roast","Brolly","Red phone box"]
-};
+/* -------- CONFIG -------- */
+const WORDS = [
+  "Toy Story","Frozen","Titanic","Shrek","The Matrix",
+  "Harry Potter","Finding Nemo","Jurassic Park",
+  "Beyoncé","Taylor Swift","David Beckham",
+  "Pizza","Toothbrush","Backpack","Sunglasses",
+  "Greggs","Tube map","Fish and chips"
+];
+const ROUND_SECONDS = 60;
+const TILT_THRESHOLD = 25; // degrees
+const COOLDOWN_MS = 1000;
+/* ------------------------ */
 
-const deckSel = document.getElementById("deck");
-const durSel = document.getElementById("duration");
+let words = [...WORDS];
+let index = 0;
+let correct = 0;
+let pass = 0;
+let timeLeft = ROUND_SECONDS;
+let running = false;
+let cooldown = false;
+let timer = null;
+
 const wordEl = document.getElementById("word");
+const correctEl = document.getElementById("correct");
+const passEl = document.getElementById("pass");
 const timeEl = document.getElementById("time");
-const okEl = document.getElementById("ok");
-const skipEl = document.getElementById("skip");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("start");
 
-let words=[], i=0, ok=0, skip=0, end=0, t=null, running=false;
-
-Object.keys(DECKS).forEach(d=>{
-  const o=document.createElement("option");
-  o.textContent=d; deckSel.appendChild(o);
-});
-
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
-
-function start(){
-  words=[...DECKS[deckSel.value]]; shuffle(words);
-  i=0; ok=0; skip=0;
-  okEl.textContent=0; skipEl.textContent=0;
-  end=Date.now()+durSel.value*1000;
-  running=true;
-  next();
-  tick(); clearInterval(t);
-  t=setInterval(tick,150);
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
 }
 
-function tick(){
-  const s=Math.max(0,Math.ceil((end-Date.now())/1000));
-  timeEl.textContent=s+"s";
-  if(s<=0) finish();
+function nextWord() {
+  if (index >= words.length) {
+    shuffle(words);
+    index = 0;
+  }
+  wordEl.textContent = words[index++];
 }
 
-function finish(){
-  running=false; clearInterval(t);
-  wordEl.textContent="Round over ✅";
+function startGame() {
+  shuffle(words);
+  index = 0;
+  correct = 0;
+  pass = 0;
+  timeLeft = ROUND_SECONDS;
+  running = true;
+
+  correctEl.textContent = 0;
+  passEl.textContent = 0;
+  timeEl.textContent = timeLeft;
+
+  nextWord();
+
+  clearInterval(timer);
+  timer = setInterval(() => {
+    timeLeft--;
+    timeEl.textContent = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
 }
 
-function next(){
-  if(!running) return;
-  if(i>=words.length){ shuffle(words); i=0; }
-  wordEl.textContent=words[i++];
+function endGame() {
+  running = false;
+  clearInterval(timer);
+  wordEl.textContent = "Round over ✅";
+  statusEl.textContent = `Correct: ${correct} • Pass: ${pass}`;
 }
 
-function correct(){ if(!running) return; ok++; okEl.textContent=ok; next(); }
-function pass(){ if(!running) return; skip++; skipEl.textContent=skip; next(); }
+function markCorrect() {
+  if (!running || cooldown) return;
+  correct++;
+  correctEl.textContent = correct;
+  statusEl.textContent = "Correct ✅";
+  lock();
+  nextWord();
+}
 
-document.getElementById("start").onclick=start;
-document.getElementById("fs").onclick=()=>document.documentElement.requestFullscreen?.();
-document.addEventListener("keydown",e=>{
-  if(e.code==="Space") correct();
-  if(e.key==="p") pass();
-  if(e.key==="r") start();
-});
+function markPass() {
+  if (!running || cooldown) return;
+  pass++;
+  passEl.textContent = pass;
+  statusEl.textContent = "Pass ⏭";
+  lock();
+  nextWord();
+}
+
+function lock() {
+  cooldown = true;
+  setTimeout(() => cooldown = false, COOLDOWN_MS);
+}
+
+/* ---- Tilt handling ---- */
+function handleOrientation(e) {
+  if (!running || cooldown) return;
+  const beta = e.beta; // front/back tilt
+
+  if (beta > TILT_THRESHOLD) {
+    markCorrect();
+  } else if (beta < -TILT_THRESHOLD) {
+    markPass();
+  }
+}
+
+async function enableTilt() {
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    const res = await DeviceOrientationEvent.requestPermission();
+    if (res !== "granted") {
+      alert("Motion permission denied");
+      return;
+    }
+  }
+  window.addEventListener("deviceorientation", handleOrientation);
+  startGame();
+}
+
+startBtn.addEventListener("click", enableTilt);
 </script>
 </body>
 </html>
